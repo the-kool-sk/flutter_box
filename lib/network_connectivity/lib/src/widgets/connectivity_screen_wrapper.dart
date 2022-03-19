@@ -1,19 +1,23 @@
 // Flutter imports:
+import 'package:flutter_box/box_framework/presentation/boxes/stateless_box.dart';
+import 'package:flutter_box/box_ui_kit/box_screen.dart';
+import 'package:flutter_box/box_ui_kit/helpers/box_enums.dart';
 import 'package:flutter_box/network_connectivity/lib/src/utils/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_box/res/string_resources.dart';
 
 // Package imports:
 import 'package:provider/provider.dart';
+import 'package:velocity_x/velocity_x.dart';
 
 import '../../connectivity_wrapper.dart';
-
 
 enum PositionOnScreen {
   TOP,
   BOTTOM,
 }
 
-class ConnectivityScreenWrapper extends StatelessWidget {
+class ConnectivityScreenWrapper extends StatelessBox {
   /// The [child] contained by the ConnectivityScreenWrapper.
   final Widget? child;
 
@@ -46,8 +50,11 @@ class ConnectivityScreenWrapper extends StatelessWidget {
 
   /// How the text should be aligned horizontally.
   final TextAlign? textAlign;
+  final OnConnectivityChanged? onConnectivityChanged;
+  OFFLINEDISPLAYMETHOD offlineDisplayMethod;
+  Widget _offlineWidget = const SizedBox();
 
-  const ConnectivityScreenWrapper({
+  ConnectivityScreenWrapper({
     Key? key,
     this.child,
     this.color,
@@ -58,8 +65,10 @@ class ConnectivityScreenWrapper extends StatelessWidget {
     this.textAlign,
     this.duration,
     this.positionOnScreen = PositionOnScreen.BOTTOM,
+    this.offlineDisplayMethod = OFFLINEDISPLAYMETHOD.SNACKBAR,
     this.disableInteraction = false,
     this.disableWidget,
+    this.onConnectivityChanged,
   })  : assert(
             color == null || decoration == null,
             'Cannot provide both a color and a decoration\n'
@@ -68,40 +77,52 @@ class ConnectivityScreenWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isOffline = Provider.of<ConnectivityStatus>(context) !=
-        ConnectivityStatus.CONNECTED;
-
+    final bool isOffline = Provider.of<ConnectivityStatus>(context) != ConnectivityStatus.CONNECTED;
+    onConnectivityChanged?.call(isOffline);
     double _height = height ?? defaultHeight;
-
-    final Widget _offlineWidget = AnimatedPositioned(
-      top: positionOnScreen.top(_height, isOffline),
-      bottom: positionOnScreen.bottom(_height, isOffline),
-      child: AnimatedContainer(
-        height: _height,
-        width: MediaQuery.of(context).size.width,
-        decoration:
-            decoration ?? BoxDecoration(color: color ?? Colors.red.shade500),
-        child: Center(
-          child: Text(
-            message ?? disconnectedMessage,
-            style: messageStyle ?? defaultMessageStyle,
-            textAlign: textAlign,
-          ),
-        ),
-        duration: duration ?? Duration(milliseconds: 300),
-      ),
-      duration: duration ?? Duration(milliseconds: 300),
-    );
+    if(isOffline) {
+      switch (offlineDisplayMethod) {
+        case OFFLINEDISPLAYMETHOD.TOAST:
+          showShorterToast(message ?? "");
+          break;
+        case OFFLINEDISPLAYMETHOD.SNACKBAR:
+          _offlineWidget = AnimatedPositioned(
+            top: positionOnScreen.top(_height, isOffline),
+            bottom: positionOnScreen.bottom(_height, isOffline),
+            child: AnimatedContainer(
+              height: _height,
+              width: MediaQuery
+                  .of(context)
+                  .size
+                  .width,
+              decoration: decoration ?? BoxDecoration(color: color ?? Colors.red.shade500),
+              child: Center(
+                child: Text(
+                  message ?? disconnectedMessage,
+                  style: messageStyle ?? defaultMessageStyle,
+                  textAlign: textAlign,
+                ),
+              ),
+              duration: duration ?? const Duration(milliseconds: 300),
+            ),
+            duration: duration ?? const Duration(milliseconds: 300),
+          );
+          break;
+      }
+    }else{
+      _offlineWidget = const SizedBox();
+    }
 
     return AbsorbPointer(
       absorbing: (disableInteraction && isOffline),
       child: Stack(
-        children: (<Widget>[    // Remove ?
-          child!,   // Add ! or maybe a test (if child != null) child!
+        children: (<Widget>[
+          // Remove ?
+          child!, // Add ! or maybe a test (if child != null) child!
           if (disableInteraction && isOffline)
-            if (disableWidget != null) disableWidget!,  // Add !
-          _offlineWidget,
-        ]) as List<Widget>,
+            if (disableWidget != null) disableWidget!, // Add !
+          _offlineWidget
+        ]),
       ),
     );
   }

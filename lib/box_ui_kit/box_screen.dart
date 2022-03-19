@@ -1,50 +1,65 @@
+import 'dart:async';
+
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_box/box_framework/presentation/boxes/stateless_box.dart';
+import 'package:flutter_box/box_ui_kit/helpers/box_enums.dart';
+import 'package:flutter_box/box_ui_kit/helpers/box_refresh_controller.dart';
 import 'package:flutter_box/network_connectivity/lib/src/widgets/connectivity_screen_wrapper.dart';
 import 'package:flutter_box/res/color_resources.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter_box/res/string_resources.dart';
 import 'package:pull_to_refresh/pull_to_refresh.dart';
 
-typedef OnRefresh = Function();
+import 'no_internet_connection.dart';
 
-class BoxWidget extends StatelessWidget {
-  final Widget? child;
-  final bool shouldHandleInternetConnectivityChanges;
-  final bool shouldDisableInteractionWhenOffline;
+typedef OnRefresh = Function();
+typedef OnConnectivityChanged = Function(bool status);
+
+class BoxWidget extends StatelessBox {
+  final Widget child;
+  final bool handleInternetConnectivityChange;
+  final bool disableWhenNoInternet;
   final Widget disabledWidget;
   final bool enablePullToRefresh;
   final OnRefresh? onRefresh;
-  final RefreshController? refreshController;
+  final BoxRefreshController? boxRefreshController;
+  final OnConnectivityChanged? onConnectivityChanged;
+  final String noInternetMessage;
+  final OFFLINEDISPLAYMETHOD offlineDisplayMethod;
+  final TextStyle messageStyle;
 
-  const BoxWidget(
-      {this.child,
-      this.shouldHandleInternetConnectivityChanges = true,
-      this.shouldDisableInteractionWhenOffline = true,
+  BoxWidget(
+      {this.child = const SizedBox(),
+      this.onConnectivityChanged,
+      this.handleInternetConnectivityChange = true,
+      this.disableWhenNoInternet = true,
       this.enablePullToRefresh = false,
+      this.offlineDisplayMethod = OFFLINEDISPLAYMETHOD.SNACKBAR,
+      this.messageStyle = const TextStyle(color: BoxColors.white),
       this.onRefresh,
-      this.refreshController,
-      this.disabledWidget = const SizedBox(
-        //TODO: Add Default disable widget when no widget is provided by developer. Take from UI/UX team.
-        child: Center(
-            child: Text(
-          "Provide disabled widget here",
-          style: TextStyle(
-            fontSize: 30,
-            color: Colors.red,
-            fontStyle: FontStyle.italic,
-          ),
-        )),
-      ),
+      this.boxRefreshController,
+      this.disabledWidget = const NoInterConnectionWidget(),
+      this.noInternetMessage = BoxStringResources.noInternetConnection,
       Key? key})
-      : super(key: key);
+      : super(key: key) {
+    if (enablePullToRefresh) {
+      assert(onRefresh != null || (throw ArgumentError("If enablePullToRefresh is true onRefresh is required")));
+      assert(boxRefreshController != null || (throw ArgumentError("If enablePullToRefresh is true boxRefreshController is required")));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-        child: shouldHandleInternetConnectivityChanges
+        child: handleInternetConnectivityChange
             ? ConnectivityScreenWrapper(
-                //TODO: Provide other attributes when the UI/UX is provided.
                 child: _pullToRefreshWidget(),
-                disableInteraction: shouldDisableInteractionWhenOffline,
+                disableInteraction: disableWhenNoInternet,
                 disableWidget: disabledWidget,
+                message: noInternetMessage,
+                messageStyle: messageStyle,
+                offlineDisplayMethod: offlineDisplayMethod,
+                onConnectivityChanged: onConnectivityChanged,
               )
             : _pullToRefreshWidget());
   }
@@ -52,16 +67,16 @@ class BoxWidget extends StatelessWidget {
   Widget _pullToRefreshWidget() {
     return enablePullToRefresh
         ? SmartRefresher(
-            controller: refreshController!,
-            child: child!,
+            controller: boxRefreshController!,
+            child: child,
             enablePullDown: true,
             enablePullUp: false,
-            header: const WaterDropMaterialHeader(
+            header: const MaterialClassicHeader(
               color: BoxColors.white,
               backgroundColor: BoxColors.blue,
             ),
             onRefresh: onRefresh,
           )
-        : child!;
+        : child;
   }
 }
